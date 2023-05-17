@@ -1,0 +1,28 @@
+[project]
+name = "lampl"
+version = "0.0.1"
+authors = [
+  { name="Alex Lew", email="alexlew@mit.edu" },
+]
+description = "LaMPL: A domain-specific probabilistic programming library for modeling and inference with language models."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/probcomp/lampl"
+"Bug Tracker" = "https://github.com/probcomp/lampl/issues"
+
+
+[build-system]
+requires = [
+    "setuptools>=42",
+    "scikit-build>=0.13",
+    "cmake>=3.18",
+    "ninja",
+]
+build-backend = "setuptools.build_meta"
