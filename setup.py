@@ -7,4 +7,6 @@ setup(
     packages=['lampl'],
     package_dir={'lampl': 'lampl'},
     python_requires=">=3.8",
+    setup_requires=['numpy'],
+    install_requires=['numpy'],
 )

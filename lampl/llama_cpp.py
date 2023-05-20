@@ -165,10 +165,15 @@ def llama_tokenize(
 _lib.llama_tokenize.argtypes = [llama_context_p, c_char_p, llama_token_p, c_int, c_bool]
 _lib.llama_tokenize.restype = c_int
 
-def llama_n_vocab(ctx: llama_context_p) -> c_int:
+def llama_n_vocab(ctx: llama_context_p):
     return _lib.llama_n_vocab(ctx)
 _lib.llama_n_vocab.argtypes = [llama_context_p]
 _lib.llama_n_vocab.restype = c_int
+
+def llama_n_ctx(ctx):
+    return _lib.llama_n_vocab(ctx)
+_lib.llama_n_ctx.argtypes = [llama_context_p]
+_lib.llama_n_ctx.restype = c_int
 
 # Token logits obtained from the last call to llama_eval()
 # The logits for the last token are stored in the last row
