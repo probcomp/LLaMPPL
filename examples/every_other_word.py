@@ -2,23 +2,22 @@ import lampl
 
 class EveryOtherWord(lampl.Model):
     def __init__(self, llm, words):
-        self.llm = llm.prompt(words[0].encode('utf-8'))
-        self.words = words[1:]
-        self.tokens = [self.llm.vocab.index(w) for w in self.words]
-        self.generated = words[0]
+        self.sentence = words.pop(0)
+        self.llm = llm.prompt(self.sentence.encode('utf-8'))
+        # TODO: don't assume one token per word
+        self.remaining_tokens = [self.llm.vocab.index(w) for w in words]
         super().__init__()
     
     def __str__(self):
-        return self.generated
+        return self.sentence
     
     def step(self):
         # Generate a token
-        self.generated += self.llm.vocab[self.sample_token(self.llm)]
+        self.sentence += self.llm.vocab[self.sample_token(self.llm)]
         # Observe the next token
-        self.observe_token(self.llm, self.tokens.pop(0))
-        self.generated += self.words.pop(0)
+        self.sentence += self.llm.vocab[self.observe_token(self.llm, self.remaining_tokens.pop(0))]
         # Check if done
-        if len(self.words) == 0:
+        if len(self.remaining_tokens) == 0:
             self.finish()
 
 

@@ -27,6 +27,7 @@ class Model:
     
     def observe_token(self, llm, token_id):
         self.score(llm.observe_token(token_id))
+        return token_id
 
     def sample_token(self, llm, q=None):
         probs = softmax(llm.logits()) if q is None else np.exp(q)
