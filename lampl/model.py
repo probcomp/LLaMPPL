@@ -1,10 +1,15 @@
 import numpy as np
 from .util import softmax
+from .llama import LlamaContext, CachedLlama
 
 class Model:
     def __init__(self):
         self.weight = 0.0
         self.finished = False
+        self.ctx = LlamaContext()
+
+    def new_llm(self):
+        return CachedLlama(self.ctx)
 
     def finish(self):
         self.finished = True

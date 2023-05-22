@@ -49,6 +49,9 @@ class LlamaContext:
         # Evaluate beginning-of-sequence token
         self.eval([llama_cpp.llama_token_bos()], [0], [0.0])
     
+    def __deepcopy__(self, memo):
+        return self
+
     def eval(self, tokens, indices, attention_mask):
         n_new = len(tokens)
         if self.kv_index + n_new >= 512:

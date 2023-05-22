@@ -4,10 +4,10 @@ class ProductOfExpertsModel(lampl.Model):
     # Constructs the model. Should not make any
     # random choices, as it will only be executed
     # one time, before inference begins.
-    def __init__(self, ctx, prompts):
-        self.llms = [lampl.CachedLlama(ctx).prompt(prompt) for prompt in prompts]
-        self.generated = ""
+    def __init__(self, prompts):
         super().__init__()
+        self.llms = [self.new_llm().prompt(prompt) for prompt in prompts]
+        self.generated = ""
 
     # String for display
     def __str__(self):
@@ -42,9 +42,8 @@ class ProductOfExpertsModel(lampl.Model):
         return q_logprobs
 
 # Create the model
-ctx = lampl.LlamaContext()
 prompts = [b" My favorite writer is probably", b" My favorite physicist is probably"]
-model = ProductOfExpertsModel(ctx, prompts)
-particles = lampl.smc(model, 20)
-for i, p in enumerate(particles):
+model = ProductOfExpertsModel(prompts)
+# Run SMC
+for i, p in enumerate(lampl.smc(model, 20)):
     print(f"Particle {i}: {p} (weight {p.weight})")

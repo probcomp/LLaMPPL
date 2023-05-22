@@ -1,12 +1,12 @@
 import lampl
 
 class EveryOtherWord(lampl.Model):
-    def __init__(self, llm, words):
+    def __init__(self, words):
+        super().__init__()
         self.sentence = words.pop(0)
-        self.llm = llm.prompt(self.sentence.encode('utf-8'))
+        self.llm = self.new_llm().prompt(self.sentence.encode('utf-8'))
         # TODO: don't assume one token per word
         self.remaining_tokens = [self.llm.vocab.index(w) for w in words]
-        super().__init__()
     
     def __str__(self):
         return self.sentence
@@ -22,9 +22,7 @@ class EveryOtherWord(lampl.Model):
 
 
 # Create the model
-llm = lampl.CachedLlama(lampl.LlamaContext())
-words = [" Every", " he", " to", " another", "."]
-model = EveryOtherWord(llm, words)
-particles = lampl.smc(model, 50)
-for i, p in enumerate(particles):
+model = EveryOtherWord([" Every", " he", " to", " another", "."])
+# Run SMC
+for i,p in enumerate(lampl.smc(model, 50)):
     print(f"Particle {i}: {p} (weight {p.weight})")

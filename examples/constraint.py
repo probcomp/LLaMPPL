@@ -20,11 +20,11 @@ class ConstraintModel(lampl.Model):
     # Constructs the model. Should not make any
     # random choices, as it will only be executed
     # one time, before inference begins.
-    def __init__(self, ctx, prompt, can_follow):
-        self.llm = lampl.CachedLlama(ctx).prompt(prompt)
+    def __init__(self, prompt, can_follow):
+        super().__init__()
+        self.llm = self.new_llm().prompt(prompt)
         self.generated = ""
         self.can_follow = can_follow
-        super().__init__()
 
     # String for display
     def __str__(self):
@@ -53,6 +53,7 @@ class ConstraintModel(lampl.Model):
         return q_logprobs
 
 # Create the model
-ctx = lampl.LlamaContext()
-model = ConstraintModel(ctx, b" THE ADEVENTURES OF PRINCE TIM. By John McInany. Kirkus Reviews, starred pick. This is a story about a boy named Tim, who", can_follow)
-particles = lampl.smc(model, 10)
+prompt = b" THE ADEVENTURES OF PRINCE TIM. By John McInany. Kirkus Reviews, starred pick. This is a story about a boy named Tim, who"
+model = ConstraintModel(prompt, can_follow)
+for i, p in enumerate(lampl.smc(model, 10)):
+    print(f"Particle {i}: {p} (weight {p.weight})")
