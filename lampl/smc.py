@@ -11,26 +11,22 @@ def smc(model, n_particles, ess_threshold=0.5):
         # Step each particle
         for i, p in enumerate(particles):
             if not p.done_stepping():
-                weights[i] += p.step()
+                p.step()
+            print(f"Particle {i}: {p} (weight {p.weight})")
 
         # Normalize weights
-        W = np.array(weights)
+        W = np.array([p.weight for p in particles])
         w_sum = logsumexp(W)
         normalized_weights = W - w_sum
-
-        # Print the particles
-        for i, p in enumerate(particles):
-            print(f"Particle {i}: {p} (weight {weights[i]})")
         
-        # print(model.llms[0].ctx)
         # Resample if necessary
         if -logsumexp(normalized_weights * 2) < np.log(ess_threshold) + np.log(n_particles):
             # Alternative implementation uses a multinomial distribution and only makes n-1 copies, reusing existing one, but fine for now
             probs = np.exp(normalized_weights)
             particles = [copy.deepcopy(particles[np.random.choice(range(len(particles)), p=probs)]) for _ in range(n_particles)]
-            weights = [w_sum - np.log(n_particles) for _ in range(n_particles)]
+            avg_weight = w_sum - np.log(n_particles)
+            for p in particles:
+                p.weight = avg_weight
 
-        
-
-    # Return the particle with the highest weight
-    return particles, weights
+    # Return the particles
+    return particles

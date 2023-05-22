@@ -120,7 +120,7 @@ class CachedLlama:
         tokens      = tokens[consumed:]
 
         if num_tokens == 0:
-            return
+            return self
 
         # Update mask and kv_index
         self.extend_mask()
@@ -141,6 +141,8 @@ class CachedLlama:
         
         # Save logits for end of prompt
         self.trie.logits = self.ctx.get_last_token_logits()
+
+        return self
 
     def logits(self):
         if self.trie.logits is None and self.trie.kv_index == self.ctx.kv_index:
