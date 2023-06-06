@@ -1,10 +1,10 @@
 [project]
-name = "lampl"
+name = "llamppl"
 version = "0.0.1"
 authors = [
   { name="Alex Lew", email="alexlew@mit.edu" },
 ]
-description = "LaMPL: A domain-specific probabilistic programming library for modeling and inference with language models."
+description = "LLaMPPL: A domain-specific library for language model probabilistic programming and SMC steering."
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
@@ -14,8 +14,8 @@ classifiers = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/probcomp/lampl"
-"Bug Tracker" = "https://github.com/probcomp/lampl/issues"
+"Homepage" = "https://github.com/probcomp/llamppl"
+"Bug Tracker" = "https://github.com/probcomp/llamppl/issues"
 
 
 [build-system]

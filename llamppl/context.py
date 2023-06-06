@@ -2,11 +2,11 @@ import numpy as np
 from . import llama_cpp
 import multiprocessing
 from .util import *
+from .token import Token
+from .constants import BOS, EOS
+from .distributions.tokendist import TokenCategorical
 
 N_THREADS = multiprocessing.cpu_count()
-HOME_PATH = "/Users/alexlew"
-MODEL_PATH = f"{HOME_PATH}/gg-llama.cpp/models/7B/ggml-model-q4_0.bin"
-
 
 class TokenTrie:
     # Trie of tokens. At each node, we store the token and its absolute position in the KV cache.
@@ -36,26 +36,48 @@ class TokenTrie:
         self.children[token_id] = TokenTrie(kv_index, self, logprob, logits)
         return self.children[token_id]
 
-class LlamaContext:
+class LLaMAConfig:
+    model_path = None
+
+    @classmethod
+    def set_model_path(cls, path):
+        if not isinstance(path, str):
+            raise ValueError("Model path must be a string.")
+        cls.model_path = path.encode('utf-8')
+
+class ActiveLLaMA:
     def __init__(self):
-        self.ctx = llama_cpp.llama_init_from_file(MODEL_PATH.encode('utf-8'), llama_cpp.llama_context_default_params())
+        self.ctx = llama_cpp.llama_init_from_file(LLaMAConfig.model_path, llama_cpp.llama_context_default_params())
         self.kv_index = -1 # Index of last token in KV cache
-        self.vocab = [llama_cpp.llama_token_to_str(self.ctx, token).decode('utf-8', errors='ignore') for token in range(llama_cpp.llama_n_vocab(self.ctx))]
+        self.vocab = [Token(token, llama_cpp.llama_token_to_str(self.ctx, token).decode('utf-8', errors='ignore')) 
+                      for token in range(llama_cpp.llama_n_vocab(self.ctx))]
+        TokenCategorical.set_vocab(self.vocab)
 
         # We store the root node of a TokenTrie, but the LlamaContext object is not
         # itself responsible for maintaining the cache.
         self.trie = TokenTrie(0)
 
         # Evaluate beginning-of-sequence token
-        self.eval([llama_cpp.llama_token_bos()], [0], [0.0])
+        self.eval([BOS], [0], [0.0])
     
+    def reset(self):
+        # Free context
+        llama_cpp.llama_free(self.ctx)
+        # Reinitialize
+        self.ctx = llama_cpp.llama_init_from_file(LLaMAConfig.model_path, llama_cpp.llama_context_default_params())
+        self.kv_index = -1
+        self.trie = TokenTrie(0)
+        self.eval([BOS], [0], [0.0])
+
     def __deepcopy__(self, memo):
         return self
 
     def eval(self, tokens, indices, attention_mask):
         n_new = len(tokens)
+
+        # TODO: make this number configurable from within Python library
         if self.kv_index + n_new >= 512:
-            assert False, "Warning: cache has more than 512 tokens. This violates memory assumptions."
+            assert False, "Cache has more than 512 tokens. Please configure with larger context and try again."
 
         tokens = (llama_cpp.llama_token * len(tokens))(*tokens)
         indices = (llama_cpp.c_int * len(tokens))(*indices)
@@ -76,6 +98,12 @@ class LlamaContext:
             return s
         return render(self.trie, 0)
 
+    def tokenize(self, prompt):
+        prompt = prompt.encode('utf-8')
+        tokens = (llama_cpp.llama_token * (len(prompt) + 1))()
+        num_tokens = llama_cpp.llama_tokenize(self.ctx, prompt, tokens, len(tokens), False)
+        return [self.vocab[i] for i in tokens[:num_tokens]]
+
 def autoregressive_mask(n_tokens):
     return [[llama_cpp.c_float(0.0)] * (i + 1) + [llama_cpp.c_float(float('-inf'))] * (n_tokens - i - 1) for i in range(n_tokens)]
 
@@ -84,33 +112,40 @@ def autoregressive_mask(n_tokens):
 # The particle holds a reference to a Trie of tokens, which is shared
 # among many particles. Where possible, it reuses results from this
 # Trie. When it needs to evaluate a new token, it adds it to the Trie.
-class CachedLlama:
+class LLaMAContext:
 
-    def __init__(self, ctx, trie=None, index=1, mask=None, kv_index=0):
-        self.ctx = ctx
-        self.vocab = self.ctx.vocab
-        self.trie = trie if trie is not None else ctx.trie
+    def __init__(self, llama, trie=None, index=1, mask=None, kv_index=0):
+        self.llama = llama
+        self.vocab = self.llama.vocab
+        self.trie = trie if trie is not None else llama.trie
         self.current_index = index # BOS is token 0, already included in context
         self.current_mask = mask if mask is not None else [0.0] # BOS token is attended to
         self.kv_index = kv_index # Equal to self.trie.kv_index... so maybe can delete?
 
+    def reset(self):
+        self.llama.reset()
+        self.trie = self.llama.trie
+        self.current_index = 1
+        self.current_mask = [0.0]
+        self.kv_index = 0
+
     def extend_mask(self):
-        if self.kv_index < self.ctx.kv_index:
-            self.current_mask.extend([-float('inf')] * (self.ctx.kv_index - self.kv_index))
-            self.kv_index = self.ctx.kv_index
+        if self.kv_index < self.llama.kv_index:
+            self.current_mask.extend([-float('inf')] * (self.llama.kv_index - self.kv_index))
+            self.kv_index = self.llama.kv_index
     
+
     def prompt(self, prompt):
         # Tokenize the prompt
-        tokens = (llama_cpp.llama_token * (len(prompt) + 1))()
-        num_tokens = llama_cpp.llama_tokenize(self.ctx.ctx, prompt, tokens, len(tokens), False)
-        tokens = tokens[:num_tokens]
+        tokens = self.llama.tokenize(prompt)
+        num_tokens = len(tokens)
 
         # Advance in the trie as far as possible
         consumed = 0
         while consumed < num_tokens:
             token = tokens[consumed]
-            if self.trie.has_token(token):
-                self.trie           = self.trie.get_token(token)
+            if self.trie.has_token(token.token_id):
+                self.trie           = self.trie.get_token(token.token_id)
                 
                 consumed           += 1
                 self.current_index += 1
@@ -133,23 +168,23 @@ class CachedLlama:
         attention_mask = sum([self.current_mask + m for m in autoregressive_mask(num_tokens)], [])
 
         # Evaluate
-        self.ctx.eval(tokens, indices, attention_mask)
+        self.llama.eval([t.token_id for t in tokens], indices, attention_mask)
 
         # Update stats
         for token in tokens:
             self.kv_index += 1
             self.current_index += 1
             self.current_mask.append(0.0)
-            self.trie = self.trie.add_token(token, self.kv_index)
+            self.trie = self.trie.add_token(token.token_id, self.kv_index)
         
         # Save logits for end of prompt
-        self.trie.logits = self.ctx.get_last_token_logits()
+        self.trie.logits = self.llama.get_last_token_logits()
 
         return self
 
     def logits(self):
-        if self.trie.logits is None and self.trie.kv_index == self.ctx.kv_index:
-            self.trie.logits = self.ctx.get_last_token_logits()
+        if self.trie.logits is None and self.trie.kv_index == self.llama.kv_index:
+            self.trie.logits = self.llama.get_last_token_logits()
         # TODO: error if still None?
         return self.trie.logits
     
@@ -174,10 +209,10 @@ class CachedLlama:
         logprob = (logits - logsumexp(logits))[token_id]
         self.extend_mask()
         self.current_mask.append(0.0)
-        self.ctx.eval([token_id], [self.current_index], self.current_mask)
+        self.llama.eval([token_id], [self.current_index], self.current_mask)
         self.current_index += 1
         self.kv_index += 1
-        self.trie = self.trie.add_token(token_id, self.kv_index, logprob, self.ctx.get_last_token_logits())
+        self.trie = self.trie.add_token(token_id, self.kv_index, logprob, self.llama.get_last_token_logits())
 
         return logprob
     
@@ -191,7 +226,7 @@ class CachedLlama:
     def observe_text(self, s):
         # Tokenize string
         tokens = (llama_cpp.llama_token * (len(s) + 1))()
-        num_tokens = llama_cpp.llama_tokenize(self.ctx.ctx, s, tokens, len(tokens), False)
+        num_tokens = llama_cpp.llama_tokenize(self.llama.ctx, s, tokens, len(tokens), False)
         tokens = tokens[:num_tokens]
 
         # Observe tokens
@@ -200,78 +235,4 @@ class CachedLlama:
     def __deepcopy__(self, memo):
         # Does not copy the context or trie, which are shared across copies.
         # The mask is just a list of floats and can be copied shallowly.
-        return CachedLlama(self.ctx, self.trie, self.current_index, self.current_mask.copy(), self.kv_index)
-
-# class LlamaModel:
-#     def __init__(self, ctx, index = 0, mask = []):
-#         self.ctx = ctx
-#         self.tokens = []
-#         self.indices = []
-#         self.current_index = index
-#         self.current_mask = mask
-#         self.vocab = self.ctx.vocab
-#         self.last_n_tokens = self.ctx.n_tokens
-#         self.most_recent_logits = None
-
-#     def extend_mask(self):
-#         if self.last_n_tokens < self.ctx.n_tokens:
-#             self.current_mask.extend([-float('inf')] * (self.ctx.n_tokens - self.last_n_tokens))
-#             self.last_n_tokens = self.ctx.n_tokens
-    
-#     def prompt(self, prompt):
-#         # Extend mask if necessary
-#         self.extend_mask()
-#         # Tokenize the prompt
-#         tokens = (llama_cpp.llama_token * (len(prompt) + 1))()
-#         num_tokens = llama_cpp.llama_tokenize(self.ctx, prompt, tokens, len(tokens), True)
-#         tokens = tokens[:num_tokens]
-#         # Compute indices and attention mask
-#         indices = range(self.current_index, self.current_index + num_tokens)
-#         attention_mask = [self.current_mask + m for m in autoregressive_mask(num_tokens)]
-#         # Evaluate
-#         self.ctx.eval(tokens, indices, attention_mask)
-#         # Update stats
-#         self.current_index += num_tokens
-#         self.current_mask = attention_mask[-1]
-#         self.tokens.extend(tokens)
-#         self.indices.extend(indices)
-#         self.last_n_tokens += num_tokens
-#         self.most_recent_logits = self.ctx.get_last_token_logits()
-
-#     def logits(self):
-#         return self.most_recent_logits
-    
-#     def observe_token(self, token_id):
-#         # Extend mask if necessary
-#         self.extend_mask()
-#         # Update stats
-#         self.current_index += 1
-#         self.current_mask.append(0.0)
-#         # Compute logprob
-#         logprob = softmax(self.most_recent_logits)[token_id]
-#         # Evaluate
-#         self.ctx.eval([token_id], [self.current_index - 1], [self.current_mask])
-#         self.most_recent_logits = self.ctx.get_last_token_logits()
-#         self.last_n_tokens += 1
-#         # Return the logprob
-#         return logprob
-    
-#     def observe_tokens(self, tokens):
-#         score = 0.0
-#         for token in tokens:
-#             score += self.observe_token(token)
-        
-#         return score
-    
-#     def observe_text(self, s):
-#         # Tokenize string
-#         tokens = (llama_cpp.llama_token * (len(s) + 1))()
-#         num_tokens = llama_cpp.llama_tokenize(self.ctx, s, tokens, len(tokens), True)
-#         tokens = tokens[:num_tokens]
-
-#         # Observe tokens
-#         return self.observe_tokens(tokens)
-    
-#     def split(self, n):
-#         [LlamaModel(self.ctx, self.current_index, self.current_mask.copy()) for _ in range(n)]
-    
+        return LLaMAContext(self.llama, self.trie, self.current_index, self.current_mask.copy(), self.kv_index)
