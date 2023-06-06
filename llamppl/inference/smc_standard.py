@@ -1,8 +1,8 @@
 import copy
 import numpy as np
-from .util import logsumexp
+from ..util import logsumexp
 
-def smc(model, n_particles, ess_threshold=0.5):
+def smc_standard(model, n_particles, ess_threshold=0.5):
     # Create n_particles copies of the model
     particles = [copy.deepcopy(model) for _ in range(n_particles)]
     weights = [0.0 for _ in range(n_particles)]

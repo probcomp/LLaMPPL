@@ -29,7 +29,7 @@ class ConstraintModel(llp.Model):
 
     def step(self):
         # Generate proposed token.
-        token = self.sample(llp.Transformer(self.context), 
+        token = self.sample(llp.Transformer(self.context),
                             proposal=self.locally_optimal_proposal())
 
         # Condition on constraint
@@ -55,7 +55,7 @@ class ConstraintModel(llp.Model):
 llp.LLaMAConfig.set_model_path(input("Path to GGML LLaMA model weights: "))
 prompt = " The Fed says"
 model = ConstraintModel(prompt, can_follow)
-for i, p in enumerate(llp.fearnhead_clifford_smc(model, 4, 4)):
+for i, p in enumerate(llp.smc_steer(model, 8, 3)):
     print(f"Particle {i}: {p} (weight {p.weight})")
 
 

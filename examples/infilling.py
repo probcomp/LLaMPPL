@@ -28,5 +28,5 @@ class Infilling(llp.Model):
 llp.LLaMAConfig.set_model_path(input("Path to GGML LLaMA model weights: "))
 model = Infilling(["Well, you see, every", " he", " to", " another", "!"])
 # Run SMC
-for i,p in enumerate(llp.fearnhead_clifford_smc(model, 4,4)):
+for i,p in enumerate(llp.smc_steer(model, 4,4)):
     print(f"Particle {i}: {p} (weight {p.weight})")

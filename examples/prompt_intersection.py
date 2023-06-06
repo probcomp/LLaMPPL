@@ -38,5 +38,5 @@ llp.LLaMAConfig.set_model_path(input("Path to GGML LLaMA model weights: "))
 prompts = [" My favorite writer is probably", " My favorite physicist is probably"]
 model = PromptIntersection(prompts)
 # Run SMC
-for i, p in enumerate(llp.fearnhead_clifford_smc(model, 5, 3)):
+for i, p in enumerate(llp.smc_steer(model, 5, 3)):
     print(f"Particle {i}: {p} (weight {p.weight})")

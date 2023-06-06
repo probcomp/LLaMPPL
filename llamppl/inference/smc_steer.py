@@ -1,8 +1,9 @@
+# SMC steering algorithm from https://arxiv.org/pdf/2306.03081.pdf
 # Optimal resampling from https://academic.oup.com/jrsssb/article/65/4/887/7092877
 
 import numpy as np
 import copy
-from .util import logsumexp, softmax
+from ..util import logsumexp, softmax
 
 def find_c(weights, N):
     # Sort the weights
@@ -52,19 +53,31 @@ def resample_optimal(weights, N):
     return deterministic, stoch_resampled, c
 
 
-def fearnhead_clifford_smc(model, n_particles, n_beam):
+def smc_steer(model, n_particles, n_beam):
     # Create n_particles copies of the model
     particles = [copy.deepcopy(model) for _ in range(n_particles)]
 
     for particle in particles:
         particle.start()
 
+    for particle in particles:
+        for _ in range(n_beam):
+            print("\n")
+
     while any(map(lambda p: not p.done_stepping(), particles)):
+        # Count the number of finished particles
+        n_finished = sum(map(lambda p: p.done_stepping(), particles))
+        n_total = n_finished + (n_particles - n_finished) * n_beam
+
         # Create a super-list of particles that has n_beam copies of each
         super_particles = []
         for p in particles:
             super_particles.append(p)
-            super_particles.extend([copy.deepcopy(p) for _ in range(n_beam-1)])
+            if p.done_stepping():
+                p.weight += np.log(n_total) - np.log(n_particles)
+            else:
+                p.weight += np.log(n_total) - np.log(n_particles) - np.log(n_beam)
+                super_particles.extend([copy.deepcopy(p) for _ in range(n_beam-1)])
         
         # Step each super-particle
         for i, p in enumerate(super_particles):
@@ -79,14 +92,12 @@ def fearnhead_clifford_smc(model, n_particles, n_beam):
         W_normalized = softmax(W)
         det_indices, stoch_indices, c = resample_optimal(W_normalized, n_particles)
         particles = [super_particles[i] for i in np.concatenate((det_indices, stoch_indices))]
-        # Update each particle weight.  NOT YET CORRECT: must preserve *average*. Currently preserves SUM.
-        # Need to add N/M correction (i.e. divide by beam_size)?
-        # For deterministic particles: w = w
+        # For deterministic particles: w = w * N/N'
         for i in det_indices:
-            super_particles[i].weight -= np.log(n_beam)
+            super_particles[i].weight += np.log(n_particles) - np.log(n_total)
         # For stochastic particles: w = 1/c * total       sum(stoch weights) / num_stoch = sum(stoch weights / total) / num_stoch * total * N/M
         for i in stoch_indices:
-            super_particles[i].weight = W_tot - np.log(c) - np.log(n_beam)
+            super_particles[i].weight = W_tot - np.log(c) + np.log(n_particles) - np.log(n_total)
 
     # Return the particles
     return particles

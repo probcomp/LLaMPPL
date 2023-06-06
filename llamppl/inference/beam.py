@@ -1,6 +1,6 @@
 import numpy as np
 import copy
-from .util import logsumexp, softmax
+from ..util import logsumexp, softmax
 
 def copy_with_index(particle, index):
     new_particle = copy.deepcopy(particle)

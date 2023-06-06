@@ -20,9 +20,9 @@ class Transformer(Distribution):
         probs = softmax(self.ctx.logits())
         token_id = np.random.choice(len(probs), p=(probs))
         logprob = self.ctx.observe_token(token_id)
-        return Token(token_id, self.ctx.vocab[token_id]), logprob
+        return self.ctx.vocab[token_id], logprob
     
     def argmax(self, idx):
         token_id = np.argsort(self.ctx.logits())[-idx]
         logprob = self.ctx.observe_token(token_id)
-        return Token(token_id, self.ctx.vocab[token_id]), logprob
+        return self.ctx.vocab[token_id], logprob
