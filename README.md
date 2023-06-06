@@ -38,7 +38,7 @@ class MyModel(Model):
     # Here, we generate one token at a time.
     def step(self):
         # Sample a token from the LLM -- automatically extends `self.context`
-        token = self.sample(Transformer(self.context))
+        token = self.sample(Transformer(self.context), proposal=self.proposal())
 
         # Condition on the token not having the forbidden letter
         self.condition(self.forbidden not in str(token).lower())
