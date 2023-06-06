@@ -54,8 +54,8 @@ class MyModel(Model):
     # Helper method to define a custom proposal
     def proposal(self):
         logits = self.context.logits().copy()
-        forbidden_indices = [i for (i, v) in enumerate(self.context.vocab) if self.forbidden in str(v).lower()]
-        logits[forbidden_indices] = -float('inf')
+        forbidden_token_ids = [i for (i, v) in enumerate(self.vocab()) if self.forbidden in str(v).lower()]
+        logits[forbidden_token_ids] = -float('inf')
         return TokenCategorical(logits)
 ```
 
