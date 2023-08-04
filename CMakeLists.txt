@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.4...3.22)
 
-project(lampl)
+project(llamppl)
 
 # Adapted from https://github.com/abetlen/llama-cpp-python/blob/main/CMakeLists.txt
 
@@ -16,14 +16,14 @@ if (UNIX)
     )
     install(
         FILES ${CMAKE_CURRENT_SOURCE_DIR}/vendor/llama.cpp/libllama.so
-        DESTINATION lampl
+        DESTINATION llamppl
     )
 else()
     set(BUILD_SHARED_LIBS "On")
     add_subdirectory(vendor/llama.cpp)
     install(
         TARGETS llama 
-        LIBRARY DESTINATION lampl
-        RUNTIME DESTINATION lampl
+        LIBRARY DESTINATION llamppl
+        RUNTIME DESTINATION llamppl
     )
 endif(UNIX)
