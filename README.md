@@ -6,6 +6,8 @@ calls to LLMs, symbolic program logic, and probabilistic conditioning.
 To solve these tasks, LLaMPPL uses a specialized sequential Monte Carlo inference
 algorithm. This technique, _SMC steering_, is described in our paper: https://arxiv.org/abs/2306.03081.
 
+**Note: A new version of this library is available at [https://github.com/probcomp/hfppl](https://github.com/probcomp/hfppl) that integrates with HuggingFace language models and supports GPU acceleration.**
+
 ## Installation
 
 Clone this repository and run `pip install -e .` in the root directory, or `python setup.py develop` to install in development mode. Then run `python examples/{example}.py`, for one of our examples (`constraints.py`, `infilling.py`, or `prompt_intersection.py`) to
