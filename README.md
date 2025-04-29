@@ -1,4 +1,4 @@
-# LLaMPPL: A Large Language Model Probabilistic Programming Language
+## **NB: This repository is not being maintained. Please see [https://github.com/genlm/llamppl](https://github.com/genlm/llamppl).** 
 
 LLaMPPL is a research prototype for _language model probabilistic programming_:
 specifying language generation tasks by writing probabilistic programs that combine
@@ -6,7 +6,6 @@ calls to LLMs, symbolic program logic, and probabilistic conditioning.
 To solve these tasks, LLaMPPL uses a specialized sequential Monte Carlo inference
 algorithm. This technique, _SMC steering_, is described in our paper: https://arxiv.org/abs/2306.03081.
 
-**Note: A new version of this library is available at [https://github.com/probcomp/hfppl](https://github.com/probcomp/hfppl) that integrates with HuggingFace language models and supports GPU acceleration.**
 
 ## Installation
 
